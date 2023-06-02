@@ -8,13 +8,29 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'dart:async';
 import 'package:flutter_vision/flutter_vision.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 enum Options { none, image, frame, tesseract, vision }
+
+FlutterTts flutterTts = FlutterTts();
+
+void textToSpeech(String text) async {
+  Timer(Duration(seconds: 100), () => flutterTts.awaitSpeakCompletion(true));
+  await flutterTts.setLanguage('en-US');
+  await flutterTts.setVolume(1.0);
+  await flutterTts.setSpeechRate(0.5);
+  await flutterTts.setPitch(10);
+
+  await flutterTts
+      .awaitSpeakCompletion(true); // wait for previous speech to finish
+  await flutterTts.speak(text);
+}
 
 late List<CameraDescription> cameras;
 main() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  textToSpeech('Welcome to roadspeak');
   runApp(
     const MaterialApp(
       home: MyApp(),
@@ -61,7 +77,7 @@ class _MyAppState extends State<MyApp> {
             child: const Icon(Icons.video_call),
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
-            label: 'Yolo on Frame',
+            label: 'Start',
             labelStyle: const TextStyle(fontSize: 18.0),
             onTap: () {
               setState(() {
@@ -73,7 +89,7 @@ class _MyAppState extends State<MyApp> {
             child: const Icon(Icons.camera),
             backgroundColor: Colors.blue,
             foregroundColor: Colors.white,
-            label: 'Yolo on Image',
+            label: 'Test',
             labelStyle: const TextStyle(fontSize: 18.0),
             onTap: () {
               setState(() {
@@ -82,10 +98,10 @@ class _MyAppState extends State<MyApp> {
             },
           ),
           SpeedDialChild(
-            child: const Icon(Icons.text_snippet_outlined),
+            child: const Icon(Icons.home),
             foregroundColor: Colors.white,
             backgroundColor: Colors.green,
-            label: 'Tesseract',
+            label: 'Home',
             labelStyle: const TextStyle(fontSize: 18.0),
             onTap: () {
               setState(() {
@@ -112,15 +128,43 @@ class _MyAppState extends State<MyApp> {
 
   Widget task(Options option) {
     if (option == Options.frame) {
+      textToSpeech('Loading');
       return YoloVideo();
     }
     if (option == Options.image) {
+      textToSpeech('Loading');
       return YoloImage();
     }
     if (option == Options.tesseract) {
-      return const TesseractImage();
+      Options option = Options.none;
+      textToSpeech('Welcome to roadspeak');
     }
-    return const Center(child: Text("Choose Task"));
+    return Container(
+      decoration: BoxDecoration(
+        image: DecorationImage(
+          image: AssetImage('./assets/img/background_2.jpg'),
+          fit: BoxFit.fill, // or other fit options
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              height: 1, // adjust the height as needed
+            ),
+            Image.asset(
+              './assets/img/logo.png',
+              width: 300,
+              height: 300,
+            ),
+            SizedBox(
+              height: 100, // adjust the height as needed
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -171,9 +215,13 @@ class _YoloVideoState extends State<YoloVideo> {
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
     if (!isLoaded) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: Text("Model not loaded, waiting for it"),
+          child: Image.asset(
+            './assets/img/logo_2.png',
+            height: 200,
+            width: 300,
+          ),
         ),
       );
     }
@@ -228,10 +276,10 @@ class _YoloVideoState extends State<YoloVideo> {
   Future<void> loadYoloModel() async {
     await vision.loadYoloModel(
         labels: 'assets/labels.txt',
-        modelPath: 'assets/yolov8n.tflite',
+        modelPath: 'assets/best_float32.tflite',
         modelVersion: "yolov8",
         numThreads: 2,
-        useGpu: true);
+        useGpu: false);
     setState(() {
       isLoaded = true;
     });
@@ -282,6 +330,20 @@ class _YoloVideoState extends State<YoloVideo> {
     Color colorPick = const Color.fromARGB(255, 50, 233, 30);
 
     return yoloResults.map((result) {
+      if (result['tag'] == '50 kph') {
+        textToSpeech("Speed limit sign ahead: 50 kilometer per hour");
+      } else if (result['tag'] == 'no u turn') {
+        textToSpeech('no u turn signage detected');
+      } else if (result['tag'] == 'bike lane') {
+        textToSpeech('slow down, bike lane ahead');
+      } else if (result['tag'] == 'keep right') {
+        textToSpeech('keep right sign identified');
+      } else if (result['tag'] == 'stop') {
+        textToSpeech('stop sign detected, please start lowering the speed');
+      } else if (result['tag'] == 'pedestrian crossing') {
+        textToSpeech(
+            'Pedestrian crossing signage detected, decrease your speed');
+      }
       return Positioned(
         left: result["box"][0] * factorX,
         top: result["box"][1] * factorY,
@@ -343,9 +405,13 @@ class _YoloImageState extends State<YoloImage> {
   Widget build(BuildContext context) {
     final Size size = MediaQuery.of(context).size;
     if (!isLoaded) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: Text("Model not loaded, waiting for it"),
+          child: Image.asset(
+            './assets/img/logo_2.png',
+            height: 200,
+            width: 300,
+          ),
         ),
       );
     }
@@ -377,10 +443,10 @@ class _YoloImageState extends State<YoloImage> {
   Future<void> loadYoloModel() async {
     await vision.loadYoloModel(
         labels: 'assets/labels.txt',
-        modelPath: 'assets/yolov8n.tflite',
+        modelPath: 'assets/best_float32.tflite',
         modelVersion: "yolov8",
         numThreads: 2,
-        useGpu: true);
+        useGpu: false);
     setState(() {
       isLoaded = true;
     });
@@ -488,9 +554,13 @@ class _TesseractImageState extends State<TesseractImage> {
   @override
   Widget build(BuildContext context) {
     if (!isLoaded) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
-          child: Text("Model not loaded, waiting for it"),
+          child: Image.asset(
+            './assets/img/logo_2.png',
+            height: 200,
+            width: 300,
+          ),
         ),
       );
     }
